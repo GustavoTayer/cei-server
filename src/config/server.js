@@ -32,6 +32,7 @@ server.use(queryParser())
 
 server.listen(process.env.PORT || port, function() {
     console.log(`BACKEND is running on port ${port}.`)
+    console.log(`env:`, process.env.prod)
 })
 
 
