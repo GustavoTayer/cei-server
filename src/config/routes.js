@@ -49,5 +49,6 @@ module.exports = function(server) {
     openApi.post('/login', AuthService.login);
     openApi.post('/signup', AuthService.signup);
     openApi.post('/validateToken', AuthService.validateToken)
+    openApi.get('/hello', AuthService.test)
     openApi.post('/obterConvite', ConviteService.obterConvite)
 };

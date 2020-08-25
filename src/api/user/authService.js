@@ -266,6 +266,11 @@ const login = (req, res, next) => {
     }
   });
 };
+
+const test = (req, res, next) => {
+  return res.json({message: 'Hello World'})
+}
+
 const validaTelaNotUserComum = (req, res, next) => {
   const usuario = req.decoded._id;
   User.findById(usuario, (err, usr) => {
@@ -632,5 +637,6 @@ module.exports = {
   semPassListagem,
   semPassAlterar,
   atualizarAvatar,
+  test,
   obterAvatar
 };
