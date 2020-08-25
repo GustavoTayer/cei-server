@@ -110,9 +110,10 @@ const criarUsuarioAdmin = () => {
           const name = "Admin";
           const email = "admin@admin.com";
           const password = "Aa@123";
+          const hierarquia = 'REITOR';
           const salt = bcrypt.genSaltSync();
           const passwordHash = bcrypt.hashSync(password, salt);
-          new User({ name, email, password: passwordHash }).save((err) => {
+          new User({ name, email, password: passwordHash, hierarquia }).save((err) => {
             if (err) {
               console.log(err);
             } else {

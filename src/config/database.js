@@ -2,7 +2,7 @@ const mongoose = require('mongoose')
 const migration = require('./migration')
 mongoose.Promise = global.Promise
 // const url = 'mongodb://localhost/cnv'
-const url = 'mongodb://gustavotayer:Pipoca_123@geonosis.mongodb.umbler.com:51546/cnv'
+const url = 'mongodb://gustavotayer:Pipoca_123@mongo_cnv:27017/cnv'
 module.exports = mongoose.connect(url, { useNewUrlParser: true, useUnifiedTopology: true, useFindAndModify: true }, err => {
   console.log(err || 'Acesso realizado com sucesso')
   if(!err) {
