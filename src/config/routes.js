@@ -1,6 +1,7 @@
 const express = require('express');
 const auth = require('./auth');
-
+const upload = require('./multer.config');
+const awsWorker = require('../controllers/aws.controllers')
 module.exports = function(server) {
     /*
     * Rotas protegidas por Token JWT
@@ -26,6 +27,7 @@ module.exports = function(server) {
     partilha.register(protectedApi, '/partilha')
     const partilhaAdiantamento = require('../api/partilha_adiantamento/partilhaAdiantamentoService')
     partilhaAdiantamento.register(protectedApi, '/partilha-adiantamento')
+    // protectedApi.post('/partilha/enviarDoc', upload.single('file'))
     protectedApi.get('/user/select', AuthService.usuariosSelect)
     protectedApi.post('/user/buscar', AuthService.userList)
     protectedApi.post('/user/buscarPorId', AuthService.findById)
@@ -39,7 +41,7 @@ module.exports = function(server) {
     protectedApi.post('/user/seminaristasAtivosAutocomplete', AuthService.seminaristasAtivosAutocomplete)
     protectedApi.post('/user/semPassListagem', AuthService.semPassListagem)
     protectedApi.post('/user/semPassAlterar', AuthService.semPassAlterar)
-    protectedApi.post('/user/atualizarAvatar', AuthService.atualizarAvatar)
+    protectedApi.post('/user/atualizarAvatar', upload.single("file"), AuthService.atualizarAvatar)
     protectedApi.get('/user/obterAvatar', AuthService.obterAvatar)
     /*
     * Rotas abertas

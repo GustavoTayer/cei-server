@@ -10,7 +10,7 @@ const passwordRegex = /((?=.*\d)(?=.*[a-z])(?=.*[A-Z])(?=.*[@#$%]).{6,20})/;
 const UsuarioConvidado = require("../usuario_convidado/UsuarioConvidado");
 const Equipe = require("../equipe/equipe");
 var mongoose = require("mongoose");
-const authSecret = process.env.authSecret || '123';
+const authSecret = process.env.authSecret || "123";
 const sendErrorsFromDB = (res, dbErrors) => {
   const errors = [];
   _.forIn(dbErrors.errors, (error) => errors.push(error.message));
@@ -138,32 +138,40 @@ const userSave = (user, res) => {
 var DIR = "uploads/avatar";
 
 const atualizarAvatar = (req, res, next) => {
-  console.log(req.params);
+  console.log("ue");
   const filename = req.decoded._id;
-  var storage = multer.diskStorage({
-    destination: function (req, file, cb) {
-      cb(null, DIR);
-    },
-    filename: function (req, file, cb) {
-      cb(null, filename + '.JPG'
-        // + "." + file.originalname.split(".")[1]
-        );
-    },
-  });
-  const upload = multer({ storage: storage }).single("file");
-  upload(req, res, function (err) {
+  const s3Client = s3.s3Client;
+  const params = s3.uploadParams;
+
+  params.Key = `avatar/${filename}`;
+  params.Body = req.file.buffer;
+  console.log("ue");
+  s3Client.upload(params, (err, data) => {
     if (err) {
-      return res.json({ err: err.toString() });
+      res.status(500).json({ error: "Error -> " + err });
     }
-    return res.json({ ok: "File is uploaded" });
+    res.json({
+      message:
+        "File uploaded successfully! -> keyname = " + req.file.originalname,
+    });
   });
 };
-const path = require('path')
 
-obterAvatar = (req, res, next) => {
-  return res.sendFile(req.decoded._id + '.JPG', {
-    root: path.join(__dirname, "../../../uploads/avatar"),
-  });
+const path = require("path");
+const s3 = require("../../config/s3");
+
+obterAvatar =  (req, res, next) => {
+  // return res.sendFile(req.decoded._id + '.JPG', {
+  //   root: path.join(__dirname, "../../../uploads/avatar"),
+  // });
+  const s3Client = s3.s3Client;
+  var params = {
+    Bucket: "ce-i",
+    Key: `avatar/${req.decoded._id}`,
+    Expires: 100,
+  };
+  const url = s3Client.getSignedUrl("getObject", params);
+  return res.json({url})
 };
 
 const atualizarUsuarioLogado = (req, res, next) => {
@@ -269,8 +277,8 @@ const login = (req, res, next) => {
 };
 
 const test = (req, res, next) => {
-  return res.json({message: 'Hello World'})
-}
+  return res.json({ message: "Hello World" });
+};
 
 const validaTelaNotUserComum = (req, res, next) => {
   const usuario = req.decoded._id;
@@ -461,7 +469,6 @@ const menuAdmin = (req, res, next) => {
     usuario: false,
     produtos: false,
     solicitacoes: false,
-    partilha: false,
     listaEquipe: false,
     minhaEquipe: false,
     partilha: false,
@@ -511,7 +518,6 @@ const menuAdmin = (req, res, next) => {
             menu.usuario = true;
             menu.produtos = true;
             menu.solicitacoes = true;
-            menu.partilha = true;
             menu.listaEquipe = true;
             menu.partilha = true;
             break;
@@ -519,9 +525,8 @@ const menuAdmin = (req, res, next) => {
             menu.usuario = true;
             menu.produtos = true;
             menu.solicitacoes = true;
-            menu.partilha = false;
             menu.listaEquipe = false;
-            menu.partilha = true;
+            menu.partilha = false;
             break;
           case "SEMINARISTA":
             if (usr.equipe) {
@@ -531,15 +536,18 @@ const menuAdmin = (req, res, next) => {
               if (usr.equipe.role === "PRODUTO") {
                 menu.solicitacoes = true;
               }
+              if (usr.equipe.role === "PARTILHA") {
+                menu.partilha = true;
+              }
             }
             break;
-          case "OUTROS":
-            menus = menus.filter(
-              (it) =>
-                it.title === "Minhas solicitações" || it.title === "Dashboard"
-            );
-            console.log(menus);
-            break;
+          // case "OUTROS":
+          //   menus = menus.filter(
+          //     (it) =>
+          //       it.title === "Minhas solicitações" || it.title === "Dashboard"
+          //   );
+          //   console.log(menus);
+          //   break;
         }
         if (Object.values(menu).some((it) => it)) {
           const children = [];
@@ -639,5 +647,5 @@ module.exports = {
   semPassAlterar,
   atualizarAvatar,
   test,
-  obterAvatar
+  obterAvatar,
 };

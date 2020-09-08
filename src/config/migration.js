@@ -5,6 +5,7 @@ const mudancas = () => {
   migrationService.criarEquipeBolo()
   migrationService.gerarCaixaPartilha()
   migrationService.criarCount('PARTILHA_MOVIMENTACAO')
+  migrationService.criarEquipePartilha()
 }
 
 module.exports = { mudancas }

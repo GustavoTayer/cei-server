@@ -146,10 +146,73 @@ const criarCount = (nome) => {
 
 };
 
+const criarEquipePartilha = () => {
+  Migration.find({ nome: "criarEquipePartilha" }, (err, mig) => {
+    if (!mig || !mig.length) {
+      new Equipe({
+        nome: "Partilha",
+        descricao:
+          "Lida com toda a gestão da partilha solidária",
+        role: "PARTILHA",
+      }).save((err, equipe) => {
+        if (err) {
+          console.log(err);
+        } else {
+          const permissoes = [
+            {
+              nome: "APROVAR_PARTILHA",
+              descricao: "Pode aprovar ou não o comprovante enviado",
+              equipe: equipe._id,
+            },
+            {
+              nome: "VER_RELATORIO",
+              descricao: "Tem acesso à pagina de relatórios",
+              equipe: equipe._id,
+            },
+            {
+              nome: "ALTERAR_PASSAGEM",
+              descricao: "Pode alterar os valores de passagem dos seminaristas",
+              equipe: equipe._id,
+            },
+            {
+              nome: "GESTAO_ADIAMENTO",
+              descricao: "Pode criar e alterar status de adiantamento",
+              equipe: equipe._id,
+            },
+            {
+              nome: "STATUS_DEPOSITADO",
+              descricao: "Pode alterar status das patilhas para depositado",
+              equipe: equipe._id,
+            },
+          ];
+          PermissoesEquipe.insertMany(permissoes, (err, permissoes) => {
+            if (err) {
+              console.log(err);
+            } else {
+              equipe.permissoes = permissoes.map((it) => it._id);
+              equipe.save((err, eqp) => {
+                if (err) {
+                  console.log(err);
+                } else {
+                  console.log("Equipe Criada");
+                  new Migration({ nome: "criarEquipePartilha" }).save((err) => {
+                    console.log(err || "Migration criarEquipePartilha criado!");
+                  });
+                }
+              });
+            }
+          });
+        }
+      });
+    }
+  });
+};
+
 module.exports = {
   atualizarEquipe,
   criarUsuarioAdmin,
   criarEquipeBolo,
   gerarCaixaPartilha,
-  criarCount
+  criarCount, 
+  criarEquipePartilha
 };

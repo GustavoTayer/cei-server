@@ -1,21 +1,20 @@
 const DateFns = require("date-fns");
-const multer = require('multer');
+const multer = require("multer");
 const Partilha = require("./partilhaSolidaria");
 const errorHandler = require("../common/errorHandler");
 const User = require("../user/user");
 const Caixa = require("../caixa/caixa");
 const Count = require("../count/count");
-const uuid = require('uuid')
-const path = require('path')
+const uuid = require("uuid");
+const path = require("path");
 const PartilhaAdiantamento = require("../partilha_adiantamento/partilhaAdiantamento");
 const Movimentacao = require("../partilha_movimentacao/partilhaMovimentacao");
+const { upload } = require("../../config/s3");
 const createCsvWriter = require("csv-writer").createObjectCsvWriter;
 Partilha.methods([]);
 Partilha.updateOptions({ new: true, runValidators: true });
 Partilha.after("post", errorHandler).after("put", errorHandler);
-var DIR = 'uploads/partilha';
-
-
+var DIR = "uploads/partilha";
 
 Partilha.route("count", (req, res, next) => {
   Partilha.count((error, value) => {
@@ -28,94 +27,138 @@ Partilha.route("count", (req, res, next) => {
 });
 
 Partilha.route("buscarPorId", (req, res, next) => {
-  Partilha.findById(req.body.id, {_id: 1, ano: 1, valorComprovante: 1, status: 1, justificativaAtraso: 1, mes: 1, justicativaCorrecao: 1, file: 1}, (err, partilha) => {
-    if(err) {
-      return sendErro(res, err)
+  Partilha.findById(
+    req.body.id,
+    {
+      _id: 1,
+      ano: 1,
+      valorComprovante: 1,
+      status: 1,
+      justificativaAtraso: 1,
+      mes: 1,
+      justicativaCorrecao: 1,
+      file: 1,
+    },
+    (err, partilha) => {
+      if (err) {
+        return sendErro(res, err);
+      }
+      if (partilha.status !== "CORRECAO" && partilha.status !== "EM_ANALISE") {
+        return sendErro(
+          res,
+          "Só pode editar se o status for Solicitado Correção ou Em Análise"
+        );
+      }
+      return res.json(partilha);
     }
-    if(partilha.status !== 'CORRECAO' && partilha.status !== 'EM_ANALISE') {
-      return sendErro(res, 'Só pode editar se o status for Solicitado Correção ou Em Análise')
-    }
-    return res.json(partilha)
-  })
-})
+  );
+});
 
-const editarPartilha = async(req, res, next) => {
+const editarPartilha = async (req, res, next) => {
   const usuario = req.decoded._id;
   const partilhaDados = req.body;
-  const partilha = await Partilha.findById(partilhaDados.id)
+  const partilha = await Partilha.findById(partilhaDados.id);
 
-  if(!partilha) {
-    return sendErro(res, 'Não encontrou partilha solidária com o id solicitado')
+  if (!partilha) {
+    return sendErro(
+      res,
+      "Não encontrou partilha solidária com o id solicitado"
+    );
   }
-  if(usuario !== partilha.usuario) {
-    return sendErro(res, 'Você não pode alterar partilha de outro usuário')
+  if (usuario !== partilha.usuario) {
+    return sendErro(res, "Você não pode alterar partilha de outro usuário");
   }
 
-  if(partilha.status !== 'CORRECAO' && partilha.status !== 'EM_ANALISE') {
-    return sendErro(res, 'Só pode editar se o status for Solicitado Correção ou Em Análise')
+  if (partilha.status !== "CORRECAO" && partilha.status !== "EM_ANALISE") {
+    return sendErro(
+      res,
+      "Só pode editar se o status for Solicitado Correção ou Em Análise"
+    );
   }
   // coloca primeiro os valores antigos, sobrescreve os alterados e seta status para analise novamente.
   partilha = {
     ...partilha,
     ...partilhaDados,
-    status: 'EM_ANALISE'
-    }
-  await partilha.save()
-  return res.json({atualizado: 'ok'})
-}
+    status: "EM_ANALISE",
+  };
+  await partilha.save();
+  return res.json({ atualizado: "ok" });
+};
 
 Partilha.route("editar", (req, res, next) => {
-  editarPartilha(req,res,next)
+  editarPartilha(req, res, next);
 });
-
 
 Partilha.route("enviarDoc", (req, res, next) => {
-  if(!req.query.comprovanteId) {
-    return res.status(403).json({message: 'Id obrigatório'})
+  if (!req.query.comprovanteId) {
+    return res.status(403).json({ message: "Id obrigatório" });
   }
-  console.log(req.params)
-  const filename = req.query.comprovanteId.replace('--', '')
-  var storage = multer.diskStorage({
-    destination: function (req, file, cb) {
-      cb(null, DIR)
-    },
-    filename: function (req, file, cb) {
-      cb(null, filename + '.' + file.originalname.split('.')[1])
-    }
-  })
-  const upload = multer({storage: storage})
-    .single('file');
+  const s3Client = s3.s3Client;
+  var storage = multer.memoryStorage();
+  const upload = multer({ storage: storage }).single("file");
   upload(req, res, function (err) {
+    const params = s3.uploadParams;
+    const filename =
+      req.query.comprovanteId.replace("--", "") +
+      "." +
+      req.file.originalname.split(".")[1];
+    params.Key = `partilha/${filename}`;
+    params.Body = req.file.buffer;
     if (err) {
-      return res.json({err:err.toString()});
+      return res.json({ err: err.toString() });
     }
-    console.log(req.query)
-    Partilha.updateOne({'_id': filename }, {file: filename + '.' + req.file.originalname.split('.')[1]}, (err, suc) =>{
+    s3Client.upload(params, (err, data) => {
       if (err) {
-        return res.json({err:err.toString()})
+        return res.status(500).json({ error: "Error -> " + err });
       }
-      return res.json({ok:'File is uploaded'});
-    })
-
+      console.log("enviado com sucesso");
+      Partilha.updateOne(
+        { _id: filename },
+        { file: filename + "." + req.file.originalname.split(".")[1] },
+        (err, suc) => {
+          if (err) {
+            return res.json({ err: err.toString() });
+          }
+          return res.json({ ok: "File is uploaded" });
+        }
+      );
+    });
   });
+
+  // console.log(req.params)
+  // const filename = req.query.comprovanteId.replace('--', '')
+  // var storage = multer.diskStorage({
+  //   destination: function (req, file, cb) {
+  //     cb(null, DIR)
+  //   },
+  //   filename: function (req, file, cb) {
+  //     cb(null, filename + '.' + file.originalname.split('.')[1])
+  //   }
+  // })
 });
 
-Partilha.route('obterDoc2', (req,res,next) => {
-  const {file} = req.body
+Partilha.route("obterDoc2", (req, res, next) => {
+  const { file, comprovanteId } = req.body;
   // const file = req.params.tagId
-  if(!file) {
-
+  if (!file) {
   }
   try {
-    return res.sendFile(
-      file, {
-        root: path.join(__dirname, '../../../uploads/partilha')
-       });
-  } catch(e) {
-    return sendErro(res, 'Arquivo não encontrado')
+    const s3Client = s3.s3Client;
+    var params = {
+      Bucket: "ce-i",
+      Key: `partilha/${comprovanteId}.${file.split('.')[1]}`,
+    };
+    res.attachment(file);
+    s3Client.getObject(params).createReadStream().pipe(res);
+    // return res.json({url})
+    // return res.sendFile(
+    //   file, {
+    //     root: path.join(__dirname, '../../../uploads/partilha')
+    //    });
+  } catch (e) {
+    return sendErro(res, "Arquivo não encontrado");
   }
-})
-
+});
 
 Partilha.route("criar", (req, res, next) => {
   const usuario = req.decoded._id;
@@ -136,21 +179,20 @@ Partilha.route("criar", (req, res, next) => {
       } else if (err) {
         return res.status(400);
       } else {
-        if(!partilhaDados.ano) {
-          return sendErro(res, 'Ano é obrigatório')
+        if (!partilhaDados.ano) {
+          return sendErro(res, "Ano é obrigatório");
         }
 
-        if(!partilhaDados.mes) {
-          return sendErro(res, 'Mês é obrigatório')
+        if (!partilhaDados.mes) {
+          return sendErro(res, "Mês é obrigatório");
         }
 
-        if(!partilhaDados.file) {
-          return sendErro(res, 'Arquivo é obrigatório')
+        if (!partilhaDados.file) {
+          return sendErro(res, "Arquivo é obrigatório");
         }
 
-
-        if(!partilhaDados.valorComprovante) {
-          return sendErro(res, 'Valor do comprovante é obrigatório')
+        if (!partilhaDados.valorComprovante) {
+          return sendErro(res, "Valor do comprovante é obrigatório");
         }
         new Partilha({
           ...partilhaDados,
@@ -191,6 +233,11 @@ const alterarStatusComum = async (req, res, next) => {
 
 const alterarStatusCorrecao = async (req, res, next) => {
   try {
+    const validado = await validarUsuario(req.decoded._id, "APROVAR_PARTILHA");
+    if (!validado) {
+      return res.status(403).json({ autorizado: false });
+    }
+
     const { ids, justificativa } = req.body;
     if (!justificativa) {
       return res.status(400).json({ errors: ["justificativa é obrigatório"] });
@@ -248,6 +295,11 @@ const alterarStatusUpdates = async (res, baixas, count, caixa) => {
 
 const alterarStatusAprov = async (req, res, next) => {
   try {
+    const validado = await validarUsuario(req.decoded._id, "APROVAR_PARTILHA");
+    if (!validado) {
+      return res.status(403).json({ autorizado: false });
+    }
+
     const { status, dataDeposito, ids } = req.body;
     const { partilhas, caixa, count, usuarioLogado } = await alterarStatusComum(
       req,
@@ -321,6 +373,11 @@ const alterarStatusAprov = async (req, res, next) => {
 
 const alterarStatusDep = async (req, res, next) => {
   try {
+    const validado = await validarUsuario(req.decoded._id, "STATUS_DEPOSITADO");
+    if (!validado) {
+      return res.status(403).json({ autorizado: false });
+    }
+
     const { ids, valorDepositado, dataDeposito, status } = req.body;
 
     if (!dataDeposito) {
@@ -340,7 +397,7 @@ const alterarStatusDep = async (req, res, next) => {
       descontado: false,
     });
 
-    console.log(partilhasAdiantadas)
+    console.log(partilhasAdiantadas);
     const caixa = await Caixa.findOne({ nome: "PARTILHA_SOLIDARIA" });
     const count = await Count.findOne({ nome: "PARTILHA_MOVIMENTACAO" });
     const baixas = [];
@@ -366,7 +423,7 @@ const alterarStatusDep = async (req, res, next) => {
         );
       }
       (partilhasAdiantadas || []).forEach((pa) => {
-        console.log(pa.usuario , partilha.usuario._id)
+        console.log(pa.usuario, partilha.usuario._id);
         if (pa.usuario.toString() === partilha.usuario._id.toString()) {
           vd -= pa.valor;
         }
@@ -384,11 +441,14 @@ const alterarStatusDep = async (req, res, next) => {
         atividade: "Doação seminarista",
         order: ctp,
       });
-       await partilha.save();
-      await PartilhaAdiantamento.updateMany({
-        usuario: { $in: Array.from(usuarios) },
-        descontado: false,
-      }, { descontado: true })
+      await partilha.save();
+      await PartilhaAdiantamento.updateMany(
+        {
+          usuario: { $in: Array.from(usuarios) },
+          descontado: false,
+        },
+        { descontado: true }
+      );
     }
     alterarStatusUpdates(res, baixas, ctp, saldo);
 
@@ -415,25 +475,25 @@ Partilha.route("alterar-status", (req, res, next) => {
 function sendErro(res, err) {
   return res.status(400).json({ errors: [err] });
 }
-
+const awsS3 = require("../../controllers/aws.controllers");
+const s3 = require("../../config/s3");
 const teste = async (req, res, next) => {
   // console.log('chegou')
-  const teste = await Partilha.find();
+  awsS3.getLink();
   // console.log(teste)
-  return res.json(teste);
+  return res.json("teste");
 };
 
 Partilha.route("teste", (req, res, next) => {
   teste(req, res, next);
 });
 
+// Lista com as partilhas pessoais
 Partilha.route("lista", (req, res, next) => {
   const usuario = req.decoded._id;
-  Partilha.find({ usuario,
-     ano: DateFns.getYear(new Date())
-  })
+  Partilha.find({ usuario, ano: DateFns.getYear(new Date()) })
     .sort({ mes: -1 })
-    .populate('usuario')
+    .populate("usuario")
     .exec((err, comprovantes) => {
       if (err) {
         console.log(err);
@@ -444,6 +504,7 @@ Partilha.route("lista", (req, res, next) => {
     });
 });
 
+// TODO: Criar planilha com os valores depositados e doados
 Partilha.route("valoresGestao", (req, res, next) => {
   valoresGestao(req, res, next);
 });
@@ -473,6 +534,7 @@ Partilha.route("gerarRelatorio", (req, res, next) => {
   });
 });
 
+// Cria os filtros para a query das partilhas
 function queryBuscarPartilhas(filtros) {
   const query = {};
   if (filtros) {
@@ -551,5 +613,42 @@ function calculaDataPrevista(mes, year) {
     return new Date(DateFns.getYear(now), mes + 2, 5);
   }
 }
+
+Partilha.route("validarTela", (req, res, next) => {
+  return validaUsuarioApi(req, res, next);
+});
+
+validaUsuarioApi = async (req, res, next) => {
+  const validado = await validarUsuario(req.decoded._id);
+  if (validado) {
+    return res.json({ autorizado: true });
+  } else {
+    return res.status(403).json({ autorizado: false });
+  }
+};
+
+const validarUsuario = async (uId, permissao) => {
+  const user = await User.findById(uId)
+    .populate({
+      path: "cargo",
+      populate: {
+        path: "permissoes",
+      },
+    })
+    .populate("equipe");
+  if (
+    user.hierarquia === "SEMINARISTA" &&
+    user.equipe &&
+    user.equipe.role === "PARTILHA"
+  ) {
+    return !permissao || user.coordenaEquipe
+      ? true
+      : user.cargo &&
+          user.cargo.permissoes &&
+          user.cago.permissoes.some((it) => it.nome === permissao);
+  } else {
+    return true;
+  }
+};
 
 module.exports = Partilha;
