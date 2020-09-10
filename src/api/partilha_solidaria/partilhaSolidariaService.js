@@ -5,7 +5,7 @@ const errorHandler = require("../common/errorHandler");
 const User = require("../user/user");
 const Caixa = require("../caixa/caixa");
 const Count = require("../count/count");
-const uuid = require("uuid");
+// const fs = require('')
 const path = require("path");
 const PartilhaAdiantamento = require("../partilha_adiantamento/partilhaAdiantamento");
 const Movimentacao = require("../partilha_movimentacao/partilhaMovimentacao");
@@ -149,7 +149,11 @@ Partilha.route("obterDoc2", (req, res, next) => {
       Key: `partilha/${comprovanteId}.${file.split('.')[1]}`,
     };
     res.attachment(file);
-    s3Client.getObject(params).createReadStream().pipe(res);
+    const fileStream = s3Client.getObject(params).createReadStream()
+    fileStream.on('error', err => {
+      console.error('erroooo 1', err)
+    })
+    fileStream.pipe(res)
     // return res.json({url})
     // return res.sendFile(
     //   file, {

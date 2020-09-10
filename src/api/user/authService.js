@@ -55,6 +55,8 @@ const usuariosSelect = (req, res, next) => {
 const userList = (req, res, next) => {
   const filtro = req.body.filtro;
   const query = {};
+  const s3Client = s3.s3Client;
+  
   if (filtro && filtro.nome) {
     query["name"] = { $regex: `${filtro.nome}` };
   }
@@ -62,6 +64,15 @@ const userList = (req, res, next) => {
     if (err) {
       return sendErrorsFromDB(res, err);
     } else {
+    //  const u =  users.map(it => {
+    //     var params = {
+    //       Bucket: "ce-i",
+    //       Key: `avatar/${it._id}`,
+    //       Expires: 100,
+    //     };
+    //     const url = s3Client.getSignedUrl("getObject", params);
+    //     return {url, ...it}
+    //   })
       return res.json(users);
     }
   });
@@ -138,14 +149,12 @@ const userSave = (user, res) => {
 var DIR = "uploads/avatar";
 
 const atualizarAvatar = (req, res, next) => {
-  console.log("ue");
   const filename = req.decoded._id;
   const s3Client = s3.s3Client;
   const params = s3.uploadParams;
 
   params.Key = `avatar/${filename}`;
   params.Body = req.file.buffer;
-  console.log("ue");
   s3Client.upload(params, (err, data) => {
     if (err) {
       res.status(500).json({ error: "Error -> " + err });
@@ -245,6 +254,7 @@ const findById = (req, res, next) => {
           tolkenConvite: 1,
           paroquia: 1,
           passagem: 1,
+          coordenaEquipe: 1
         },
         (err, user) => {
           if (err) {
@@ -529,6 +539,7 @@ const menuAdmin = (req, res, next) => {
             menu.partilha = false;
             break;
           case "SEMINARISTA":
+            menu.usuario = false
             if (usr.equipe) {
               if (usr.coordenaEquipe) {
                 menu.minhaEquipe = true;
