@@ -2,6 +2,7 @@ const Equipe = require("./equipe");
 const User = require("../user/user");
 const errorHandler = require("../common/errorHandler");
 const Cargo = require("../equipe_cargo/equipe-cargo");
+const equipeCargo = require("../equipe_cargo/equipe-cargo");
 Equipe.methods([]);
 Equipe.updateOptions({ new: true, runValidators: true });
 Equipe.after("post", errorHandler).after("put", errorHandler);
@@ -161,6 +162,49 @@ Equipe.route("criarCargo", (req, res, next) => {
     }
   });
 });
+
+Equipe.route('editarCargo', (req, res, next) => {
+  editarCargo(req, res, next)
+})
+
+const editarCargo = async (req, res, next) => {
+  try {
+    console.log('tamo aqui')
+    const id = req.body._id
+    const usr = await User.findById(req.decoded._id)
+
+    console.log('eita q louco')
+    const { nome, descricao, permissoes} = req.body
+    const cargo = await Cargo.findById(id)
+
+    console.log('badunts')
+    if(!validar(usr, cargo.equipe)) {
+      console.log('caraii')
+      return res.status(400).json({errors:['Você não possui permissão para isso']})
+    }
+    // const equipe =  Equipe.findById(cargo.equipe)
+    cargo.nome = nome || cargo.nome
+    cargo.descricao = descricao || cargo.descricao
+    cargo.permissoes = permissoes || cargo.permissoes
+    await cargo.save()
+    console.log('bagulho ta doido')
+    
+    const equipe = await Equipe.findById(cargo.equipe).populate({
+      path: "membros",
+      populate: {
+        path: "cargo",
+      },
+      select: "-password",
+    })
+    .populate("permissoes")
+    .populate("cargos")
+    return res.json(equipe)
+  } catch(e) {
+    console.log(e)
+    return res.status(403).json(e)
+  }
+  
+}
 
 Equipe.route("criar", (req, res, next) => {
   const usuario = req.decoded._id;
@@ -343,9 +387,11 @@ const populateEquipe = (equipe, res) => {
 };
 
 const validar = (usr, eqpId) => {
+  console.log(usr.hierarquia === "REITOR" , (usr.coordenaEquipe && usr.equipe === eqpId))
   return (
     usr.hierarquia === "REITOR" || (usr.coordenaEquipe && usr.equipe === eqpId)
   );
 };
 
 module.exports = Equipe;
+                                                                 

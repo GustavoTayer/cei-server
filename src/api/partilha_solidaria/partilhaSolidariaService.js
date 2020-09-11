@@ -55,34 +55,50 @@ Partilha.route("buscarPorId", (req, res, next) => {
 });
 
 const editarPartilha = async (req, res, next) => {
-  const usuario = req.decoded._id;
-  const partilhaDados = req.body;
-  const partilha = await Partilha.findById(partilhaDados.id);
+  try {
+    const usuario = req.decoded._id;
+    const partilhaDados = req.body;
+    let partilha = await Partilha.findById(partilhaDados.id);
+  
+    if (!partilha) {
+      return sendErro(
+        res,
+        "Não encontrou partilha solidária com o id solicitado"
+      );
+    }
+    console.log(usuario === partilha.usuario)
+    if (usuario != partilha.usuario) {
+      return sendErro(res, "Você não pode alterar partilha de outro usuário");
+    }
+  
+    if (partilha.status !== "CORRECAO" && partilha.status !== "EM_ANALISE") {
+      return sendErro(
+        res,
+        "Só pode editar se o status for Solicitado Correção ou Em Análise"
+      );
+    }
+    // coloca primeiro os valores antigos, sobrescreve os alterados e seta status para analise novamente.
+    partilha.mes = partilhaDados.mes || partilha.mes
+    partilha.ano = partilhaDados.ano || partilha.ano
+    partilha.valorComprovante = partilhaDados.valorComprovante || partilha.valorComprovante
+    partilha.dataPrevistaRecebimento = partilhaDados.dataPrevistaRecebimento || partilha.dataPrevistaRecebimento
+    partilha.status = 'EM_ANALISE'
+    partilha.justificativaAtraso = partilhaDados.justificativaAtraso || partilha.justificativaAtraso
+    partilha.file = partilhaDados.file || partilha.file
 
-  if (!partilha) {
-    return sendErro(
-      res,
-      "Não encontrou partilha solidária com o id solicitado"
-    );
+    //     console.log('dados', partilhaDados)
+    // partilha = {
+    //   ...partilha,
+    //   ...partilhaDados,
+    //   status: "EM_ANALISE",
+    // };
+    await partilha.save();
+    return res.json({ atualizado: "ok" });
+  } catch(e) {
+    console.log(e)
+    return res.status(403).json({e})
   }
-  if (usuario !== partilha.usuario) {
-    return sendErro(res, "Você não pode alterar partilha de outro usuário");
-  }
-
-  if (partilha.status !== "CORRECAO" && partilha.status !== "EM_ANALISE") {
-    return sendErro(
-      res,
-      "Só pode editar se o status for Solicitado Correção ou Em Análise"
-    );
-  }
-  // coloca primeiro os valores antigos, sobrescreve os alterados e seta status para analise novamente.
-  partilha = {
-    ...partilha,
-    ...partilhaDados,
-    status: "EM_ANALISE",
-  };
-  await partilha.save();
-  return res.json({ atualizado: "ok" });
+  
 };
 
 Partilha.route("editar", (req, res, next) => {
@@ -401,7 +417,6 @@ const alterarStatusDep = async (req, res, next) => {
       descontado: false,
     });
 
-    console.log(partilhasAdiantadas);
     const caixa = await Caixa.findOne({ nome: "PARTILHA_SOLIDARIA" });
     const count = await Count.findOne({ nome: "PARTILHA_MOVIMENTACAO" });
     const baixas = [];
