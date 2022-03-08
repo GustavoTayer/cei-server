@@ -1,9 +1,9 @@
 const mongoose = require('mongoose')
 const migration = require('./migration')
 mongoose.Promise = global.Promise
-const url = process.env.prod ? process.env.db : 'mongodb://localhost/cnv'
+const url = process.env.db || 'mongodb://localhost/cnv'
 module.exports = mongoose.connect(url, { useNewUrlParser: true, useUnifiedTopology: true }, err => {
-  console.log(err || 'Acesso realizado com sucesso')
+  console.log(err || `Acesso realizado com sucesso ${url}`)
   if(!err) {
     migration.mudancas()
   }

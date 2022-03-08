@@ -52,13 +52,7 @@ Equipe.route("buscarPorId", (req, res, next) => {
         .status(403)
         .json({ errors: ["Você não possui permissão para fazer isso"] });
     } else {
-      Equipe.findById(id, (err, eqp) => {
-        if (err) {
-          return res.status(400).json(err);
-        } else {
-          populateEquipe(eqp, res);
-        }
-      });
+      populateEquipe2(Equipe.findById(id), res)
     }
   });
 });
@@ -89,16 +83,14 @@ Equipe.route("removerMembro", (req, res, next) => {
               if (err) {
                 return res.status(400).json(err);
               } else {
-                Equipe.findById(req.body.id, (err, eqp) => {
-                  populateEquipe(eqp, res);
-                });
+                return populateEquipe2(Equipe.findById(req.body.id), res)
               }
             }
           );
         }
       );
     }
-  })
+  });
 });
 
 Equipe.route("adicionarCargoUsuario", (req, res, next) => {
@@ -115,12 +107,7 @@ Equipe.route("adicionarCargoUsuario", (req, res, next) => {
         { _id: req.body.usuarioId },
         { cargo: req.body.cargoId },
         (err, upd) => {
-          Equipe.findById(req.body.id, (err, eqp) => {
-            if (err) {
-              return res.status(400).json(err);
-            }
-            populateEquipe(eqp, res);
-          });
+          return getEquipeById(req.body.id);
         }
       );
     }
@@ -151,60 +138,58 @@ Equipe.route("criarCargo", (req, res, next) => {
             return res.status(400).json(err);
           }
           eqp.cargos.push(crg._id);
-          eqp.save((err, equipeSalva) => {
-            if (err) {
-              return res.status(400).json(err);
-            }
-            populateEquipe(equipeSalva, res);
-          });
+          return populateEquipe2(eqp.save(), res);
+          // eqp.save((err, equipeSalva) => {
+          //   if (err) {
+          //     return res.status(400).json(err);
+          //   }
+          //   populateEquipe(equipeSalva, res);
+          // });
         });
       });
     }
   });
 });
 
-Equipe.route('editarCargo', (req, res, next) => {
-  editarCargo(req, res, next)
-})
+Equipe.route("editarCargo", (req, res, next) => {
+  editarCargo(req, res, next);
+});
 
 const editarCargo = async (req, res, next) => {
   try {
-    console.log('tamo aqui')
-    const id = req.body._id
-    const usr = await User.findById(req.decoded._id)
+    const id = req.body._id;
+    const usr = await User.findById(req.decoded._id);
 
-    console.log('eita q louco')
-    const { nome, descricao, permissoes} = req.body
-    const cargo = await Cargo.findById(id)
+    const { nome, descricao, permissoes } = req.body;
+    const cargo = await Cargo.findById(id);
 
-    console.log('badunts')
-    if(!validar(usr, cargo.equipe)) {
-      console.log('caraii')
-      return res.status(400).json({errors:['Você não possui permissão para isso']})
+    if (!validar(usr, cargo.equipe)) {
+      return res
+        .status(400)
+        .json({ errors: ["Você não possui permissão para isso"] });
     }
     // const equipe =  Equipe.findById(cargo.equipe)
-    cargo.nome = nome || cargo.nome
-    cargo.descricao = descricao || cargo.descricao
-    cargo.permissoes = permissoes || cargo.permissoes
-    await cargo.save()
-    console.log('bagulho ta doido')
-    
-    const equipe = await Equipe.findById(cargo.equipe).populate({
-      path: "membros",
-      populate: {
-        path: "cargo",
-      },
-      select: "-password",
-    })
-    .populate("permissoes")
-    .populate("cargos")
-    return res.json(equipe)
-  } catch(e) {
-    console.log(e)
-    return res.status(403).json(e)
+    cargo.nome = nome || cargo.nome;
+    cargo.descricao = descricao || cargo.descricao;
+    cargo.permissoes = permissoes || cargo.permissoes;
+    await cargo.save();
+
+    const equipe = await Equipe.findById(cargo.equipe)
+      .populate({
+        path: "membros",
+        populate: {
+          path: "cargo",
+        },
+        select: "-password",
+      })
+      .populate("permissoes")
+      .populate("cargos");
+    return res.json(equipe);
+  } catch (e) {
+    console.log(e);
+    return res.status(403).json(e);
   }
-  
-}
+};
 
 Equipe.route("criar", (req, res, next) => {
   const usuario = req.decoded._id;
@@ -291,21 +276,24 @@ Equipe.route("adicionarMembro", (req, res, next) => {
         equipe.membros = [];
       }
       equipe.membros.push(usuarioId);
-      equipe.save((err, equipe) => {
-        if (err) {
-          console.log(err);
-          return res.status(400).json(err);
-        } else {
-          User.findByIdAndUpdate(usuarioId, { equipe: id }, (err, usr) => {
-            if (err) {
-              console.log(err);
-              return res.status(400).json(err);
-            } else {
-              populateEquipe(equipe, res);
-            }
-          });
-        }
-      });
+      const equipeSaved = populateEquipe2(equipe.save(), res);
+      User.findByIdAndUpdate(usuarioId, { equipe: id });
+      // equipe.save((err, equipe) => {
+      //   if (err) {
+      //     console.log(err);
+      //     return res.status(400).json(err);
+      //   } else {
+      //     User.findByIdAndUpdate(usuarioId, { equipe: id }, (err, usr) => {
+      //       if (err) {
+      //         console.log(err);
+      //         return res.status(400).json(err);
+      //       } else {
+      //         populateEquipe(equipe, res);
+      //       }
+      //     });
+      //   }
+      // });
+      return equipeSaved;
     }
   });
 });
@@ -367,6 +355,47 @@ Equipe.route("select", (req, res, next) => {
   });
 });
 
+const getEquipeById = (id, res) => {
+  Equipe.findById(id)
+    .populate({
+      path: "membros",
+      populate: {
+        path: "cargo",
+      },
+      select: "-password",
+    })
+    .populate("permissoes")
+    .populate("cargos")
+    .exec( (err, eqp) => {
+      if(err) {
+        res.status(400).json({errors: [error]})
+      } else {
+        return res.json(eqp);
+      }
+    });
+};
+
+const populateEquipe2 = (queryFunc, res) => {
+  queryFunc
+    .populate({
+      path: "membros",
+      populate: {
+        path: "cargo",
+      },
+      select: "-password",
+    })
+    .populate("permissoes")
+    .populate("cargos").exec(
+      (err, equipePop) => {
+        if (err) {
+          return res.status(400).json(err);
+        } else {
+          return res.json(equipePop);
+        }
+      }
+    );
+}
+
 const populateEquipe = (equipe, res) => {
   equipe
     .populate({
@@ -377,21 +406,25 @@ const populateEquipe = (equipe, res) => {
       select: "-password",
     })
     .populate("permissoes")
-    .populate("cargos", (err, equipePop) => {
-      if (err) {
-        return res.status(400).json(err);
-      } else {
-        return res.json(equipePop);
+    .populate("cargos").exec(
+      (err, equipePop) => {
+        if (err) {
+          return res.status(400).json(err);
+        } else {
+          return res.json(equipePop);
+        }
       }
-    });
+    );
 };
 
 const validar = (usr, eqpId) => {
-  console.log(usr.hierarquia === "REITOR" , (usr.coordenaEquipe && usr.equipe === eqpId))
+  console.log(
+    usr.hierarquia === "REITOR",
+    usr.coordenaEquipe && usr.equipe === eqpId
+  );
   return (
     usr.hierarquia === "REITOR" || (usr.coordenaEquipe && usr.equipe === eqpId)
   );
 };
 
 module.exports = Equipe;
-                                                                 
