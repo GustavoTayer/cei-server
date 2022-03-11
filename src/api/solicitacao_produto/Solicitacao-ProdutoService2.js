@@ -15,7 +15,6 @@ const eStatus = new Set([
 ]);
 const EmailService = require("../../config/emailService");
 const User = require("../user/user");
-const env = require("../../.env");
 const moment = require("moment");
 const dateFns = require("date-fns");
 const metaVenda = 300;
@@ -167,7 +166,7 @@ SolicitacaoProduto.route("solicitarCancelamento", (req, res, next) => {
             "YYYY-MM-DD"
           );
           const href = `${
-            env.url
+            process.env.URL
           }/pages/admin/solicitacoes?status=${"SLC_CANCELAMENTO"}&dtDjEnd=${dataDesejadaQuery}&dtDjStart=${dataDesejadaQuery}&usuario=${usuario}`;
           const produtos = sol.produtos.map(
             (element) =>
