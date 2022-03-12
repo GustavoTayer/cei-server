@@ -384,11 +384,13 @@ SolicitacaoProduto.route("validarTela", (req, res, next) => {
 });
 
 SolicitacaoProduto.route("salvar", (req, res, next) => {
-  const usuario = req.decoded._id;
+  const usuario = req.body.usuario;
   const produtosSolicitados = req.body.produtos;
   let valorTotal = 0;
 
-  Produto.find({}).then((p) => {
+  console.log(usuario)
+  
+  return Produto.find({}).then((p) => {
     const prodSolValor = produtosSolicitados.map((ps) => {
       const prr = p.find((prod) => prod._id == ps.produto);
       const valor = prr.valor * ps.quantidade;
@@ -420,6 +422,7 @@ SolicitacaoProduto.route("salvar", (req, res, next) => {
               if (err) {
                 return res.status(500).json({ errors: [err] });
               } else {
+                console.log(solProd2);
                 return res.json(solProd2);
               }
             });

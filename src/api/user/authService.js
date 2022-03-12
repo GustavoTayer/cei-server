@@ -56,7 +56,7 @@ const userList = (req, res, next) => {
   const filtro = req.body.filtro;
   const query = {};
   const s3Client = s3.s3Client;
-  
+
   if (filtro && filtro.nome) {
     query["name"] = { $regex: `${filtro.nome}` };
   }
@@ -64,15 +64,15 @@ const userList = (req, res, next) => {
     if (err) {
       return sendErrorsFromDB(res, err);
     } else {
-    //  const u =  users.map(it => {
-    //     var params = {
-    //       Bucket: "ce-i",
-    //       Key: `avatar/${it._id}`,
-    //       Expires: 100,
-    //     };
-    //     const url = s3Client.getSignedUrl("getObject", params);
-    //     return {url, ...it}
-    //   })
+      //  const u =  users.map(it => {
+      //     var params = {
+      //       Bucket: "ce-i",
+      //       Key: `avatar/${it._id}`,
+      //       Expires: 100,
+      //     };
+      //     const url = s3Client.getSignedUrl("getObject", params);
+      //     return {url, ...it}
+      //   })
       return res.json(users);
     }
   });
@@ -169,7 +169,7 @@ const atualizarAvatar = (req, res, next) => {
 const path = require("path");
 const s3 = require("../../config/s3");
 
-obterAvatar =  (req, res, next) => {
+obterAvatar = (req, res, next) => {
   // return res.sendFile(req.decoded._id + '.JPG', {
   //   root: path.join(__dirname, "../../../uploads/avatar"),
   // });
@@ -180,7 +180,7 @@ obterAvatar =  (req, res, next) => {
     Expires: 100,
   };
   const url = s3Client.getSignedUrl("getObject", params);
-  return res.json({url})
+  return res.json({ url })
 };
 
 const atualizarUsuarioLogado = (req, res, next) => {
@@ -334,25 +334,38 @@ const signup = (req, res, next) => {
   if (!bcrypt.compareSync(confirmPassword, passwordHash)) {
     return res.status(400).send({ errors: ["Senhas não conferem."] });
   }
+
   const newUser = new User({ name, email, password: passwordHash });
   User.find({}, (err, usr) => {
     if (err) {
       return sendErrorsFromDB(res, err);
     } else if (usr && usr.length) {
-      if (!conviteId) {
-        return res
-          .status(400)
-          .send({ errors: ["O Id do convite é obrigatório"] });
-      }
       User.findOne({ email }, (err, user) => {
         if (err) {
           return sendErrorsFromDB(res, err);
         } else if (user) {
           return res.status(400).send({ errors: ["Usuário já cadastrado."] });
         } else {
+          if (!conviteId) {
+            // return res
+            //   .status(400)
+            //   .send({ errors: ["O Id do convite é obrigatório"] });
+            newUser.hierarquia = req.body.hierarquia
+            return newUser.save((err, user) => {
+              if (err) {
+                return sendErrorsFromDB(res, err);
+              } else {
+                return res.json(
+                  user
+                )
+              }
+            })
+          }
+
           UsuarioConvidado.findOne(
             { _id: conviteId, email },
             (err, convite) => {
+
               if (err) {
                 return sendErrorsFromDB(res, err);
               } else if (!convite) {
