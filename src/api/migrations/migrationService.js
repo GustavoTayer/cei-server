@@ -5,7 +5,7 @@ const Caixa = require("../caixa/caixa");
 const PermissoesEquipe = require("../equipe_permissoes/equipe-permissao");
 const Count = require("../count/count");
 
-const bcrypt = require("bcrypt");
+const bcrypt = require("bcryptjs");
 
 const atualizarEquipe = () => {
   Migration.find({ nome: "atualizarEquipe" }, (err, mig) => {

@@ -2,6 +2,12 @@
 version: '3.1'
 
 services:
+  cei:
+    build: .
+    ports: 
+      - 3003:3003
+    environment:
+       DB: mongodb://mongo:27017/cnv
 
   mongo:
     image: mongo

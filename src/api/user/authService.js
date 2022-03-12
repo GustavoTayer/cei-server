@@ -1,7 +1,7 @@
 // import {v4 as uuidV4 } from 'uuid';
 const _ = require("lodash");
 const jwt = require("jsonwebtoken");
-const bcrypt = require("bcrypt");
+const bcrypt = require("bcryptjs");
 const User = require("./user");
 const multer = require("multer");
 const emailRegex = /\S+@\S+\.\S+/;
