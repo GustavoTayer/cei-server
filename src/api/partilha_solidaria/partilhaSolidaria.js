@@ -23,7 +23,8 @@ const partilhaSolidaria = new mongoose.Schema({
     justificativaAtraso: {type: String},
     atividades: [atividades],
     justicativaCorrecao: {type: String},
-    file: {type: String}
+    file: {type: String},
+    mimetype: {type: String}
 })
 
 module.exports = restful.model('PartilhaSolidaria', partilhaSolidaria)

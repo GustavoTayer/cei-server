@@ -175,7 +175,7 @@ obterAvatar = (req, res, next) => {
   // });
   const s3Client = s3.s3Client;
   var params = {
-    Bucket: "ce-i",
+    Bucket: process.env.AWS_BUCKET_NAME,
     Key: `avatar/${req.decoded._id}`,
     Expires: 100,
   };

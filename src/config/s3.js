@@ -20,11 +20,11 @@
 const AWS = require('aws-sdk');
  
 const s3Client = new AWS.S3({
-  region : 'sa-east-1'
+  signatureVersion: 'v4'
 });
  
 const uploadParams = {
-         Bucket: 'ce-i', 
+         Bucket: process.env.AWS_BUCKET_NAME, 
          Key: '', // pass key
          Body: null, // pass file body
 };

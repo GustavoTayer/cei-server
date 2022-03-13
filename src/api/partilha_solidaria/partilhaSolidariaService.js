@@ -11,6 +11,9 @@ const PartilhaAdiantamento = require("../partilha_adiantamento/partilhaAdiantame
 const Movimentacao = require("../partilha_movimentacao/partilhaMovimentacao");
 const { upload } = require("../../config/s3");
 const createCsvWriter = require("csv-writer").createObjectCsvWriter;
+const mimeType = require('mime-types')
+
+
 Partilha.methods([]);
 Partilha.updateOptions({ new: true, runValidators: true });
 Partilha.after("post", errorHandler).after("put", errorHandler);
@@ -114,10 +117,14 @@ Partilha.route("enviarDoc", (req, res, next) => {
   const upload = multer({ storage: storage }).single("file");
   upload(req, res, function (err) {
     const params = s3.uploadParams;
+
+    const partilhaId = req.query.comprovanteId.replace("--", "");
+
+    const extension = mimeType.extension(req.file.mimetype)
     const filename =
       req.query.comprovanteId.replace("--", "") +
       "." +
-      req.file.originalname.split(".")[1];
+      extension;
     params.Key = `partilha/${filename}`;
     params.Body = req.file.buffer;
     if (err) {
@@ -127,10 +134,9 @@ Partilha.route("enviarDoc", (req, res, next) => {
       if (err) {
         return res.status(500).json({ error: "Error -> " + err });
       }
-      console.log("enviado com sucesso");
       Partilha.updateOne(
-        { _id: filename },
-        { file: filename + "." + req.file.originalname.split(".")[1] },
+        { _id: partilhaId },
+        { mimetype: req.file.mimetype },
         (err, suc) => {
           if (err) {
             return res.json({ err: err.toString() });
@@ -153,18 +159,55 @@ Partilha.route("enviarDoc", (req, res, next) => {
   // })
 });
 
+const getDocument2 = async (req, res) => {
+  const {comprovanteId: id} = req.body;
+
+  const partilha = await Partilha.findOne({_id: id}).exec()
+  if(!partilha) {
+    return res.status(404);
+  }
+  return getS3Object(id, partilha.mimetype, partilha.file, res);
+}
+
+const getS3Object = (id, mimetype, file, res) => {
+  try {
+    const s3Client = s3.s3Client;
+    var params = {
+      Bucket: process.env.AWS_BUCKET_NAME,
+      Key: `partilha/${id}.${mimeType.extension(mimetype)}`,
+    };
+    res.attachment(file);
+    const fileStream = s3Client.getObject(params).createReadStream()
+    fileStream.on('error', err => {
+      console.error('erroooo 1', err)
+    })
+    return fileStream.pipe(res)
+  } catch (e) {
+    console.error(e)
+    return sendErro(res, "Arquivo não encontrado");
+  }
+} 
+
 Partilha.route("obterDoc2", (req, res, next) => {
   const { file, comprovanteId } = req.body;
   // const file = req.params.tagId
   if (!file) {
   }
+
+  return getDocument2(req, res);
+
+  const partilha = Partilha.findOne({_id: comprovanteId}).exec()
+  console.log(partilha)
   try {
     const s3Client = s3.s3Client;
     var params = {
-      Bucket: "ce-i",
+      Bucket: process.env.AWS_BUCKET_NAME,
       Key: `partilha/${comprovanteId}.${file.split('.')[1]}`,
     };
+    console.log(file)
     res.attachment(file);
+
+    console.log(params)
     const fileStream = s3Client.getObject(params).createReadStream()
     fileStream.on('error', err => {
       console.error('erroooo 1', err)
@@ -203,7 +246,7 @@ Partilha.route("criar", (req, res, next) => {
           return sendErro(res, "Ano é obrigatório");
         }
 
-        if (!partilhaDados.mes) {
+        if (partilhaDados.mes == null || partilhaDados.mes == undefined) {
           return sendErro(res, "Mês é obrigatório");
         }
 
@@ -496,16 +539,7 @@ function sendErro(res, err) {
 }
 const awsS3 = require("../../controllers/aws.controllers");
 const s3 = require("../../config/s3");
-const teste = async (req, res, next) => {
-  // console.log('chegou')
-  awsS3.getLink();
-  // console.log(teste)
-  return res.json("teste");
-};
-
-Partilha.route("teste", (req, res, next) => {
-  teste(req, res, next);
-});
+const partilhaSolidaria = require("./partilhaSolidaria");
 
 // Lista com as partilhas pessoais
 Partilha.route("lista", (req, res, next) => {

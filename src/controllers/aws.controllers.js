@@ -21,7 +21,7 @@ exports.doUpload = (req, res, folder) => {
 
 exports.getLink = (req, res) => {
     var params = {
-        Bucket: 'ce-i',
+        Bucket: process.env.AWS_BUCKET_NAME,
         Key: 'Nicollas.JPG',
         Expires: 100,
     }
