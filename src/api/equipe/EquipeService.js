@@ -3,6 +3,7 @@ const User = require("../user/user");
 const errorHandler = require("../common/errorHandler");
 const Cargo = require("../equipe_cargo/equipe-cargo");
 const equipeCargo = require("../equipe_cargo/equipe-cargo");
+const { eq } = require("lodash");
 Equipe.methods([]);
 Equipe.updateOptions({ new: true, runValidators: true });
 Equipe.after("post", errorHandler).after("put", errorHandler);
@@ -266,37 +267,29 @@ Equipe.route("buscarMinhaEquipe", (req, res, next) => {
   });
 });
 
-Equipe.route("adicionarMembro", (req, res, next) => {
+const adicionrMembro = async (req, res) => {
   const { usuarioId, id } = req.body;
-  Equipe.findById(id, (err, equipe) => {
-    if (err) {
-      console.log(err);
-    } else {
-      if (!equipe.membros) {
-        equipe.membros = [];
-      }
-      equipe.membros.push(usuarioId);
-      const equipeSaved = populateEquipe2(equipe.save(), res);
-      User.findByIdAndUpdate(usuarioId, { equipe: id });
-      // equipe.save((err, equipe) => {
-      //   if (err) {
-      //     console.log(err);
-      //     return res.status(400).json(err);
-      //   } else {
-      //     User.findByIdAndUpdate(usuarioId, { equipe: id }, (err, usr) => {
-      //       if (err) {
-      //         console.log(err);
-      //         return res.status(400).json(err);
-      //       } else {
-      //         populateEquipe(equipe, res);
-      //       }
-      //     });
-      //   }
-      // });
-      return equipeSaved;
-    }
-  });
-});
+  var equipe = await Equipe.findById(id);
+  if (!equipe.membros) {
+    equipe.membros = [];
+  }
+  equipe.membros.push(usuarioId);
+  let equipeSaved = await equipe.save();
+  equipeSaved = await equipeSaved
+    .populate({
+      path: "membros",
+      populate: {
+        path: "cargo",
+      },
+      select: "-password",
+    })
+    .populate("permissoes")
+    .populate("cargos")
+    .execPopulate()
+  return res.json(equipeSaved)
+}
+
+Equipe.route("adicionarMembro", (req, res, next) => adicionrMembro(req, res));
 
 Equipe.route("removerCargo", (req, res, next) => {
   const usuario = req.decoded._id;
@@ -366,9 +359,9 @@ const getEquipeById = (id, res) => {
     })
     .populate("permissoes")
     .populate("cargos")
-    .exec( (err, eqp) => {
-      if(err) {
-        res.status(400).json({errors: [error]})
+    .exec((err, eqp) => {
+      if (err) {
+        res.status(400).json({ errors: [error] })
       } else {
         return res.json(eqp);
       }
@@ -385,14 +378,14 @@ const populateEquipe2 = (queryFunc, res) => {
       select: "-password",
     })
     .populate("permissoes")
-    .populate("cargos").exec(
-      (err, equipePop) => {
-        if (err) {
-          return res.status(400).json(err);
-        } else {
-          return res.json(equipePop);
-        }
+    .populate("cargos")
+    .exec((err, equipePop) => {
+      if (err) {
+        return res.status(400).json(err);
+      } else {
+        return res.json(equipePop);
       }
+    }
     );
 }
 
@@ -418,10 +411,6 @@ const populateEquipe = (equipe, res) => {
 };
 
 const validar = (usr, eqpId) => {
-  console.log(
-    usr.hierarquia === "REITOR",
-    usr.coordenaEquipe && usr.equipe === eqpId
-  );
   return (
     usr.hierarquia === "REITOR" || (usr.coordenaEquipe && usr.equipe === eqpId)
   );
