@@ -69,7 +69,6 @@ const editarPartilha = async (req, res, next) => {
         "Não encontrou partilha solidária com o id solicitado"
       );
     }
-    console.log(usuario === partilha.usuario)
     if (usuario != partilha.usuario) {
       return sendErro(res, "Você não pode alterar partilha de outro usuário");
     }
@@ -195,32 +194,6 @@ Partilha.route("obterDoc2", (req, res, next) => {
   }
 
   return getDocument2(req, res);
-
-  const partilha = Partilha.findOne({_id: comprovanteId}).exec()
-  console.log(partilha)
-  try {
-    const s3Client = s3.s3Client;
-    var params = {
-      Bucket: process.env.AWS_BUCKET_NAME,
-      Key: `partilha/${comprovanteId}.${file.split('.')[1]}`,
-    };
-    console.log(file)
-    res.attachment(file);
-
-    console.log(params)
-    const fileStream = s3Client.getObject(params).createReadStream()
-    fileStream.on('error', err => {
-      console.error('erroooo 1', err)
-    })
-    fileStream.pipe(res)
-    // return res.json({url})
-    // return res.sendFile(
-    //   file, {
-    //     root: path.join(__dirname, '../../../uploads/partilha')
-    //    });
-  } catch (e) {
-    return sendErro(res, "Arquivo não encontrado");
-  }
 });
 
 Partilha.route("criar", (req, res, next) => {
@@ -331,9 +304,10 @@ const alterarStatusCorrecao = async (req, res, next) => {
   }
 };
 
-const alterarStatusUpdates = async (res, baixas, count, caixa) => {
+const alterarStatusUpdates = async (res, movimentacao, count, caixa) => {
+  console.log(movimentacao, count, caixa)
   try {
-    await Movimentacao.insertMany(baixas);
+    await Movimentacao.insertMany(movimentacao);
     await Caixa.updateOne(
       { nome: "PARTILHA_SOLIDARIA" },
       {
